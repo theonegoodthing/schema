@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schema-Planeraren (2-veckors rullande)</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2, h3 { color: #ffffff; margin: 0 0 10px 0; }
+        
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #282828;
+            margin-bottom: 15px;
+        }
+
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+        button {
+            background: #252525;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        button:hover { background: #383838; }
+        button.btn-primary { background: #007aff; border-color: #007aff; }
+        button.btn-primary:hover { background: #0056b3; }
+        button.btn-danger { background: #dc3545; border-color: #dc3545; }
+        button.btn-danger:hover { background: #bd2130; }
+
+        /* Flikar för Jämn/Ojämn vecka */
+        .week-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .week-tab {
+            padding: 10px 20px;
+            background: #1c1c1c;
+            border: 2px solid #333;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+        .week-tab.active {
+            background: #007aff;
+            border-color: #007aff;
+            color: #fff;
+        }
+
+        .layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .sidebar {
+            width: 270px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            background: #1c1c1c;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .staff-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: #282828;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        /* 7-dagars rutnät */
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            flex-grow: 1;
+            min-width: 900px;
+        }
+
+        .day-col {
+            background: #181818;
+            border: 2px solid #2d2d2d;
+            border-radius: 12px;
+            min-height: 520px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .day-col.drag-over {
+            border-color: #007aff;
+            background: #202020;
+        }
+
+        .day-header {
+            padding: 12px 8px;
+            text-align: center;
+            border-bottom: 2px solid #2d2d2d;
+            background: #1e1e1e;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .day-title { font-weight: bold; font-size: 1rem; margin-bottom: 4px; }
+        .day-type-btn {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            border: 1px solid #555;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 4px;
+        }
+        .type-vardag { background: #2a2a2a; color: #aaa; }
+        .type-afton { background: #5c4400; color: #ffd15c; border-color: #ffd15c; }
+        .type-rod { background: #661111; color: #ff8888; border-color: #ff8888; }
+
+        .day-hours { font-size: 0.75rem; color: #888; margin-top: 6px; }
+
+        .shifts-list {
+            padding: 10px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Pass-bubblor */
+        .shift-bubble {
+            background: #242424;
+            border-left: 5px solid #007aff;
+            border-radius: 8px;
+            padding: 10px;
+            cursor: grab;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-top: 1px solid #333;
+            border-right: 1px solid #333;
+            border-bottom: 1px solid #333;
+        }
+        .shift-bubble:active { cursor: grabbing; }
+
+        .shift-name { font-weight: bold; font-size: 0.95rem; margin-bottom: 4px; }
+        .shift-time { font-family: monospace; font-size: 0.85rem; color: #ccc; }
+        .shift-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #888;
+            margin: 6px 0;
+            border-top: 1px dashed #3a3a3a;
+            padding-top: 4px;
+        }
+        .shift-net { font-size: 0.9rem; font-weight: bold; color: #58a6ff; }
+
+        .shift-btns {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        .shift-btns button {
+            padding: 4px 6px;
+            font-size: 0.7rem;
+            flex: 1;
+            background: #333;
+            border: 1px solid #444;
+        }
+        .shift-btns button:hover { background: #444; }
+
+        /* Sammanställningstabell */
+        .summary-card {
+            margin-top: 25px;
+            background: #1c1c1c;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #2d2d2d;
+        }
+        th { background: #151515; color: #888; font-weight: bold; }
+        tfoot td {
+            font-weight: bold;
+            color: #fff;
+            background: #151515;
+            border-top: 2px solid #444;
+        }
+
+        .badge-ob { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; }
+        .badge-50 { background: #473600; color: #ffcc00; }
+        .badge-70 { background: #3e1e5e; color: #d09eff; }
+        .badge-100 { background: #551111; color: #ff6b6b; }
+        
+        .badge-pct {
+            background: rgba(0, 122, 255, 0.2);
+            color: #58a6ff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        .diff-tag {
+            font-size: 0.75rem;
+            padding: 2px 5px;
+            border-radius: 4px;
+            margin-left: 4px;
+            font-weight: bold;
+        }
+        .diff-pos { background: rgba(52, 199, 89, 0.2); color: #34c759; }
+        .diff-neg { background: rgba(255, 59, 48, 0.2); color: #ff3b30; }
+        .diff-zero { background: rgba(136, 136, 136, 0.2); color: #aaa; }
+
+        /* Dialoger / Modaler */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-body {
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 12px;
+            padding: 20px;
+            width: 380px;
+            max-width: 90%;
+        }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.8rem; margin-bottom: 4px; color: #aaa; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        /* Utskriftsanpassning */
+        @media print {
+            body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+            .header-bar, .sidebar, .shift-btns, .day-type-btn, .modal, .week-tabs { display: none !important; }
+            
+            body.print-summary-mode .schedule-grid { display: none !important; }
+            body.print-schedule-mode .summary-card { display: none !important; }
+
+            .schedule-grid { min-width: 100% !important; grid-template-columns: repeat(7, 1fr) !important; gap: 4px !important; }
+            .day-col { border: 1px solid #999 !important; background: #fff !important; min-height: auto !important; }
+            .day-header { background: #eee !important; color: #000 !important; border-bottom: 1px solid #999 !important; }
+            .shift-bubble { background: #fdfdfd !important; color: #000 !important; border: 1px solid #999 !important; border-left-width: 5px !important; margin-bottom: 6px !important; }
+            .shift-time, .shift-net { color: #000 !important; }
+            
+            table { border: 1px solid #666 !important; }
+            th, td { border: 1px solid #ccc !important; color: #000 !important; background: #fff !important; }
+            @page { size: landscape; margin: 10mm; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <div>
+            <h1>🗓️ Schema-Planeraren</h1>
+            <div style="font-size: 0.8rem; color: #888;">2-veckors rullande schema • Handels heltid 38,25h/v (76,5h / 2v)</div>
+        </div>
+        <div class="btn-row">
+            <button class="btn-primary" onclick="openShiftModal()">+ Nytt Pass</button>
+            <button onclick="exportJSON()">💾 Spara fil</button>
+            <button onclick="document.getElementById('importFile').click()">📂 Öppna fil</button>
+            <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importJSON(event)">
+            <button onclick="printMode('schedule')">🖨️ Skriv ut Veckoschema</button>
+            <button onclick="printMode('summary')">🖨️ Skriv ut Sammanställning</button>
+        </div>
+    </div>
+
+    <!-- Flikar för Jämn / Ojämn vecka -->
+    <div class="week-tabs">
+        <button class="week-tab active" id="tabEven" onclick="switchWeek('even')">📅 Jämn Vecka</button>
+        <button class="week-tab" id="tabOdd" onclick="switchWeek('odd')">📅 Ojämn Vecka</button>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3>Personal</h3>
+                    <button style="padding:4px 8px; font-size:0.75rem;" onclick="openStaffModal()">+ Lägg till</button>
+                </div>
+                <div id="staffList"></div>
+            </div>
+
+            <div class="card" style="font-size:0.75rem; line-height:1.6; color:#aaa;">
+                <strong style="color:#fff;">Heltidsberäkning:</strong><br>
+                Handels butik = <strong>38,25 h/vecka</strong>.<br>
+                2 veckor rullande = <strong>76,5 timmar</strong>.<br>
+                Kontraktstimmar jämförs mot snittet över de två veckorna.
+            </div>
+
+            <div class="card" style="font-size:0.75rem; line-height:1.6; color:#aaa;">
+                <strong style="color:#fff;">Handels Rastregler:</strong><br>
+                • Under 5 tim: 0 min<br>
+                • 5 till under 8 tim: 30 min<br>
+                • 8 timmar och över: 60 min
+            </div>
+
+            <div class="card" style="font-size:0.75rem; line-height:1.6; color:#aaa;">
+                <strong style="color:#fff;">Handels OB-tider:</strong><br>
+                • Mån–Fre 18:15–20:00: <span class="badge-ob badge-50">50%</span><br>
+                • Mån–Fre 20:00–00:00: <span class="badge-ob badge-70">70%</span><br>
+                • Lördag efter 12:00: <span class="badge-ob badge-100">100%</span><br>
+                • Söndag dygnet runt: <span class="badge-ob badge-100">100%</span><br>
+                • Afton e. 12 / Röd dag: <span class="badge-ob badge-100">100%</span>
+            </div>
+        </aside>
+
+        <main class="schedule-grid" id="grid"></main>
+    </div>
+
+    <div class="summary-card">
+        <h2>📊 Sammanställning, OB & Kontrakterade Timmar</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Medarbetare</th>
+                    <th>Kontrakt (h/v)</th>
+                    <th>Jämn v (netto)</th>
+                    <th>Ojämn v (netto)</th>
+                    <th>Total 2 veckor</th>
+                    <th>Snitt / vecka</th>
+                    <th>Diff mot kontrakt</th>
+                    <th>% av Heltid</th>
+                    <th>OB 50%</th>
+                    <th>OB 70%</th>
+                    <th>OB 100%</th>
+                </tr>
+            </thead>
+            <tbody id="summaryBody"></tbody>
+            <tfoot id="summaryFoot"></tfoot>
+        </table>
+    </div>
+
+    <!-- Personal-Modal -->
+    <div class="modal" id="staffModal">
+        <div class="modal-body">
+            <h3>Lägg till Medarbetare</h3>
+            <div class="form-group">
+                <label>Namn</label>
+                <input type="text" id="newStaffName" placeholder="Förnamn">
+            </div>
+            <div class="form-group">
+                <label>Kontrakterade timmar (per vecka)</label>
+                <input type="number" id="newStaffContract" step="0.25" value="38.25" placeholder="t.ex. 38.25 för heltid">
+            </div>
+            <div class="form-group">
+                <label>Färgkod</label>
+                <input type="color" id="newStaffColor" value="#007aff" style="height:40px; padding:2px;">
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+                <button onclick="closeModal('staffModal')">Avbryt</button>
+                <button class="btn-primary" onclick="saveNewStaff()">Spara</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pass-Modal -->
+    <div class="modal" id="shiftModal">
+        <div class="modal-body">
+            <h3 id="modalTitle">Redigera Pass</h3>
+            <input type="hidden" id="modalShiftId">
+            <div class="form-group">
+                <label>Medarbetare</label>
+                <select id="modalStaff"></select>
+            </div>
+            <div class="form-group">
+                <label>Vecka</label>
+                <select id="modalWeek">
+                    <option value="even">Jämn vecka</option>
+                    <option value="odd">Ojämn vecka</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Dag</label>
+                <select id="modalDay">
+                    <option value="0">Måndag</option>
+                    <option value="1">Tisdag</option>
+                    <option value="2">Onsdag</option>
+                    <option value="3">Torsdag</option>
+                    <option value="4">Fredag</option>
+                    <option value="5">Lördag</option>
+                    <option value="6">Söndag</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                    <label>Start</label>
+                    <input type="time" id="modalStart" value="08:00" onchange="onTimeChange()">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>Slut</label>
+                    <input type="time" id="modalEnd" value="16:30" onchange="onTimeChange()">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Rast (minuter)</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="modalBreak" onchange="manualBreakChosen()">
+                        <option value="0">0 min</option>
+                        <option value="15">15 min</option>
+                        <option value="30">30 min</option>
+                        <option value="45">45 min</option>
+                        <option value="60">60 min</option>
+                        <option value="75">75 min</option>
+                        <option value="90">90 min</option>
+                    </select>
+                    <span id="breakStatus" style="font-size:0.75rem; color:#888;">Auto</span>
+                </div>
+                <a href="javascript:void(0)" onclick="resetBreakAuto()" style="font-size:0.7rem; color:#007aff; margin-top:4px; display:inline-block;">Återställ till Handels-standard</a>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                <button class="btn-danger" id="btnDeleteShift" onclick="deleteShift()">Ta bort</button>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="closeModal('shiftModal')">Avbryt</button>
+                    <button class="btn-primary" onclick="saveShift()">Spara</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drop-Modal (Flytta eller Kopiera) -->
+    <div class="modal" id="dropModal">
+        <div class="modal-body">
+            <h3>Hantera pass</h3>
+            <p id="dropText" style="font-size:0.85rem; color:#aaa; margin: 10px 0 20px 0;"></p>
+            <div style="display:flex; justify-content:space-between;">
+                <button onclick="closeModal('dropModal')">Avbryt</button>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-primary" onclick="resolveDrop('copy')">📋 Kopiera</button>
+                    <button class="btn-primary" style="background:#28a745; border-color:#28a745;" onclick="resolveDrop('move')">➡️ Flytta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_DAYS = [
+            { name: "Måndag", type: "vardag" },
+            { name: "Tisdag", type: "vardag" },
+            { name: "Onsdag", type: "vardag" },
+            { name: "Torsdag", type: "vardag" },
+            { name: "Fredag", type: "vardag" },
+            { name: "Lördag", type: "vardag" },
+            { name: "Söndag", type: "vardag" }
+        ];
+
+        let currentWeek = 'even'; // 'even' eller 'odd'
+
+        let state = {
+            staff: [
+                { id: "s1", name: "Axel", contract: 38.25, color: "#007aff" },
+                { id: "s2", name: "Elin", contract: 38.25, color: "#af52de" },
+                { id: "s3", name: "Ella", contract: 30.00, color: "#34c759" },
+                { id: "s4", name: "Per", contract: 38.25, color: "#ff9500" }
+            ],
+            daysEven: JSON.parse(JSON.stringify(DEFAULT_DAYS)),
+            daysOdd: JSON.parse(JSON.stringify(DEFAULT_DAYS)),
+            shifts: [
+                // Startdata för jämn vecka
+                { id: "1", week: "even", staffId: "s1", day: 0, start: "07:00", end: "15:30", breakMin: 30, breakManual: false },
+                { id: "2", week: "even", staffId: "s2", day: 0, start: "12:00", end: "20:30", breakMin: 30, breakManual: false },
+                { id: "3", week: "even", staffId: "s3", day: 1, start: "07:00", end: "14:00", breakMin: 30, breakManual: false },
+                { id: "4", week: "even", staffId: "s4", day: 4, start: "15:00", end: "21:15", breakMin: 30, breakManual: false },
+                // Startdata för ojämn vecka
+                { id: "5", week: "odd", staffId: "s1", day: 1, start: "07:00", end: "15:30", breakMin: 30, breakManual: false },
+                { id: "6", week: "odd", staffId: "s2", day: 2, start: "12:00", end: "20:30", breakMin: 30, breakManual: false }
+            ]
+        };
+
+        let pendingDrop = null;
+        let isBreakManual = false;
+
+        function calcHandelsBreak(grossHours) {
+            if (grossHours < 5.0) return 0;
+            if (grossHours < 8.0) return 30;
+            return 60;
+        }
+
+        function parseMins(t) {
+            const [h, m] = t.split(":").map(Number);
+            return h * 60 + m;
+        }
+
+        function toTimeStr(m) {
+            const h = Math.floor(m / 60).toString().padStart(2, '0');
+            const min = (m % 60).toString().padStart(2, '0');
+            return `${h}:${min}`;
+        }
+
+        function calculateHours(s, dayType, dayIdx) {
+            const startM = parseMins(s.start);
+            let endM = parseMins(s.end);
+            if (endM <= startM) endM += 24 * 60;
+
+            const grossMin = endM - startM;
+            const gross = grossMin / 60;
+
+            let brk = s.breakManual ? s.breakMin : calcHandelsBreak(gross);
+            const netMin = Math.max(0, grossMin - brk);
+            const net = netMin / 60;
+
+            let ob50Min = 0, ob70Min = 0, ob100Min = 0;
+
+            for (let m = startM; m < endM; m++) {
+                const norm = m % (24 * 60);
+                if (dayType === "rod" || dayIdx === 6) {
+                    ob100Min++;
+                } else if (dayType === "afton" || dayIdx === 5) {
+                    if (norm >= 12 * 60) ob100Min++;
+                } else {
+                    if (norm >= (18 * 60 + 15) && norm < (20 * 60)) ob50Min++;
+                    else if (norm >= (20 * 60) && norm < (24 * 60)) ob70Min++;
+                }
+            }
+
+            const factor = grossMin > 0 ? (netMin / grossMin) : 0;
+            const ob50 = (ob50Min * factor) / 60;
+            const ob70 = (ob70Min * factor) / 60;
+            const ob100 = (ob100Min * factor) / 60;
+            const ord = Math.max(0, net - (ob50 + ob70 + ob100));
+
+            return { gross, brk, net, ord, ob50, ob70, ob100 };
+        }
+
+        function switchWeek(w) {
+            currentWeek = w;
+            document.getElementById("tabEven").classList.toggle("active", w === 'even');
+            document.getElementById("tabOdd").classList.toggle("active", w === 'odd');
+            render();
+        }
+
+        function render() {
+            // Rendera personal
+            const sList = document.getElementById("staffList");
+            sList.innerHTML = "";
+            state.staff.forEach(st => {
+                const contractHours = st.contract !== undefined ? st.contract : 38.25;
+                sList.innerHTML += `
+                    <div class="staff-item">
+                        <div>
+                            <span class="dot" style="background:${st.color};"></span>
+                            <strong>${st.name}</strong>
+                            <div style="font-size:0.75rem; color:#888; margin-left:20px;">${contractHours} h/v</div>
+                        </div>
+                        <button style="padding:2px 6px; font-size:0.7rem;" onclick="removeStaff('${st.id}')">✕</button>
+                    </div>
+                `;
+            });
+
+            // Aktiva dagar för vald vecka
+            const days = currentWeek === 'even' ? state.daysEven : state.daysOdd;
+
+            // Rendera schema
+            const grid = document.getElementById("grid");
+            grid.innerHTML = "";
+
+            days.forEach((d, dayIdx) => {
+                const col = document.createElement("div");
+                col.className = "day-col";
+                col.dataset.day = dayIdx;
+
+                col.ondragover = e => { e.preventDefault(); col.classList.add("drag-over"); };
+                col.ondragleave = () => col.classList.remove("drag-over");
+                col.ondrop = e => handleDrop(e, dayIdx);
+
+                const dayShifts = state.shifts.filter(s => (s.week || 'even') === currentWeek && s.day === dayIdx);
+                dayShifts.sort((a, b) => parseMins(a.start) - parseMins(b.start));
+
+                let dayNetSum = 0;
+                dayShifts.forEach(s => dayNetSum += calculateHours(s, d.type, dayIdx).net);
+
+                let typeLabel = "Vardag";
+                let typeClass = "type-vardag";
+                if (d.type === "afton") { typeLabel = "Afton (100% e. 12)"; typeClass = "type-afton"; }
+                if (d.type === "rod") { typeLabel = "Röd Dag (100% hel)"; typeClass = "type-rod"; }
+
+                col.innerHTML = `
+                    <div class="day-header">
+                        <div class="day-title">${d.name}</div>
+                        <button class="day-type-btn ${typeClass}" onclick="toggleDayType(${dayIdx})">${typeLabel}</button>
+                        <div class="day-hours">Totalt: <strong>${dayNetSum.toFixed(1)}h</strong> (${dayShifts.length} pass)</div>
+                    </div>
+                    <div class="shifts-list" id="col-${dayIdx}"></div>
+                `;
+
+                const list = col.querySelector(`#col-${dayIdx}`);
+                dayShifts.forEach(s => {
+                    const st = state.staff.find(x => x.id === s.staffId) || { name: "Okänd", color: "#888" };
+                    const calc = calculateHours(s, d.type, dayIdx);
+
+                    const bubble = document.createElement("div");
+                    bubble.className = "shift-bubble";
+                    bubble.style.borderLeftColor = st.color;
+                    bubble.draggable = true;
+                    bubble.ondragstart = e => {
+                        e.dataTransfer.setData("text/plain", JSON.stringify({ shiftId: s.id, fromDay: dayIdx }));
+                    };
+
+                    bubble.innerHTML = `
+                        <div class="shift-name">${st.name}</div>
+                        <div class="shift-time">${s.start} – ${s.end}</div>
+                        <div class="shift-meta">
+                            <span>☕ ${calc.brk}m ${s.breakManual ? 'manuell' : 'auto'}</span>
+                            <span class="shift-net">${calc.net.toFixed(1)} h</span>
+                        </div>
+                        <div class="shift-btns">
+                            <button onclick="quickAdjust('${s.id}', -30)">-30m</button>
+                            <button onclick="quickAdjust('${s.id}', 30)">+30m</button>
+                            <button onclick="openShiftModal('${s.id}')">Ändra</button>
+                        </div>
+                    `;
+                    list.appendChild(bubble);
+                });
+
+                grid.appendChild(col);
+            });
+
+            renderSummary();
+            saveLocal();
+        }
+
+        function renderSummary() {
+            const tbody = document.getElementById("summaryBody");
+            const tfoot = document.getElementById("summaryFoot");
+            tbody.innerHTML = "";
+            
+            // Handels heltid: 38.25 timmar per vecka = 76.5 timmar över 2 veckor
+            const FULLTIME_2WEEKS = 76.5;
+
+            let total = { contractSum: 0, evenNet: 0, oddNet: 0, sum2w: 0, ob50: 0, ob70: 0, ob100: 0 };
+
+            state.staff.forEach(st => {
+                let evenNet = 0, oddNet = 0;
+                let pOB50 = 0, pOB70 = 0, pOB100 = 0;
+
+                state.shifts.filter(s => s.staffId === st.id).forEach(s => {
+                    const w = s.week || 'even';
+                    const days = w === 'even' ? state.daysEven : state.daysOdd;
+                    const c = calculateHours(s, days[s.day].type, s.day);
+                    
+                    if (w === 'even') evenNet += c.net;
+                    else oddNet += c.net;
+
+                    pOB50 += c.ob50;
+                    pOB70 += c.ob70;
+                    pOB100 += c.ob100;
+                });
+
+                const total2w = evenNet + oddNet;
+                const avgPerWeek = total2w / 2;
+                const contractHours = st.contract !== undefined ? st.contract : 38.25;
+                const diff = avgPerWeek - contractHours;
+                const ftePct = ((total2w / FULLTIME_2WEEKS) * 100);
+
+                total.contractSum += contractHours;
+                total.evenNet += evenNet;
+                total.oddNet += oddNet;
+                total.sum2w += total2w;
+                total.ob50 += pOB50;
+                total.ob70 += pOB70;
+                total.ob100 += pOB100;
+
+                let diffClass = "diff-zero";
+                let diffText = "±0.0 h";
+                if (diff > 0.05) {
+                    diffClass = "diff-pos";
+                    diffText = `+${diff.toFixed(1)} h`;
+                } else if (diff < -0.05) {
+                    diffClass = "diff-neg";
+                    diffText = `${diff.toFixed(1)} h`;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><span class="dot" style="background:${st.color};"></span><strong>${st.name}</strong></td>
+                        <td>${contractHours.toFixed(2)} h/v</td>
+                        <td>${evenNet.toFixed(1)} h</td>
+                        <td>${oddNet.toFixed(1)} h</td>
+                        <td><strong>${total2w.toFixed(1)} h</strong></td>
+                        <td>${avgPerWeek.toFixed(1)} h/v</td>
+                        <td><span class="diff-tag ${diffClass}">${diffText}</span></td>
+                        <td><span class="badge-pct">${ftePct.toFixed(1)} %</span></td>
+                        <td><span class="badge-ob badge-50">${pOB50.toFixed(1)} h</span></td>
+                        <td><span class="badge-ob badge-70">${pOB70.toFixed(1)} h</span></td>
+                        <td><span class="badge-ob badge-100">${pOB100.toFixed(1)} h</span></td>
+                    </tr>
+                `;
+            });
+
+            const totalAvgWeek = total.sum2w / 2;
+            const totalFteCount = (total.sum2w / FULLTIME_2WEEKS);
+            const totalDiff = totalAvgWeek - total.contractSum;
+
+            let totalDiffClass = "diff-zero";
+            let totalDiffText = "±0.0 h";
+            if (totalDiff > 0.05) {
+                totalDiffClass = "diff-pos";
+                totalDiffText = `+${totalDiff.toFixed(1)} h`;
+            } else if (totalDiff < -0.05) {
+                totalDiffClass = "diff-neg";
+                totalDiffText = `${totalDiff.toFixed(1)} h`;
+            }
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td>TOTALT BUTIK</td>
+                    <td>${total.contractSum.toFixed(2)} h/v</td>
+                    <td>${total.evenNet.toFixed(1)} h</td>
+                    <td>${total.oddNet.toFixed(1)} h</td>
+                    <td><strong>${total.sum2w.toFixed(1)} h</strong></td>
+                    <td>${totalAvgWeek.toFixed(1)} h/v</td>
+                    <td><span class="diff-tag ${totalDiffClass}">${totalDiffText}</span></td>
+                    <td><span class="badge-pct" style="background:#007aff; color:#fff;">${totalFteCount.toFixed(2)} heltid</span></td>
+                    <td><span class="badge-ob badge-50">${total.ob50.toFixed(1)} h</span></td>
+                    <td><span class="badge-ob badge-70">${total.ob70.toFixed(1)} h</span></td>
+                    <td><span class="badge-ob badge-100">${total.ob100.toFixed(1)} h</span></td>
+                </tr>
+            `;
+        }
+
+        function toggleDayType(idx) {
+            const days = currentWeek === 'even' ? state.daysEven : state.daysOdd;
+            const seq = ["vardag", "afton", "rod"];
+            const next = (seq.indexOf(days[idx].type) + 1) % seq.length;
+            days[idx].type = seq[next];
+            render();
+        }
+
+        function quickAdjust(id, delta) {
+            const s = state.shifts.find(x => x.id === id);
+            if (!s) return;
+            let endM = parseMins(s.end) + delta;
+            const startM = parseMins(s.start);
+            if (endM <= startM + 30) endM = startM + 30;
+            if (endM >= 24 * 60) endM = 23 * 60 + 59;
+            s.end = toTimeStr(endM);
+            if (!s.breakManual) {
+                s.breakMin = calcHandelsBreak((endM - startM) / 60);
+            }
+            render();
+        }
+
+        function handleDrop(e, targetDay) {
+            e.preventDefault();
+            document.querySelectorAll(".day-col").forEach(c => c.classList.remove("drag-over"));
+            try {
+                const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                if (data.fromDay === targetDay) return;
+                const shift = state.shifts.find(x => x.id === data.shiftId);
+                const staff = state.staff.find(x => x.id === shift.staffId);
+                const days = currentWeek === 'even' ? state.daysEven : state.daysOdd;
+                pendingDrop = { shiftId: data.shiftId, targetDay };
+                
+                document.getElementById("dropText").innerText = 
+                    `Vill du flytta eller kopiera ${staff.name}s pass (${shift.start}-${shift.end}) till ${days[targetDay].name}?`;
+                openModal("dropModal");
+            } catch (err) { }
+        }
+
+        function resolveDrop(action) {
+            if (!pendingDrop) return;
+            const s = state.shifts.find(x => x.id === pendingDrop.shiftId);
+            if (action === "move") {
+                s.day = pendingDrop.targetDay;
+                s.week = currentWeek;
+            } else if (action === "copy") {
+                const copy = JSON.parse(JSON.stringify(s));
+                copy.id = "s_" + Date.now();
+                copy.day = pendingDrop.targetDay;
+                copy.week = currentWeek;
+                state.shifts.push(copy);
+            }
+            closeModal("dropModal");
+            render();
+        }
+
+        function openStaffModal() {
+            document.getElementById("newStaffName").value = "";
+            document.getElementById("newStaffContract").value = "38.25";
+            openModal("staffModal");
+        }
+
+        function saveNewStaff() {
+            const name = document.getElementById("newStaffName").value.trim();
+            const contract = parseFloat(document.getElementById("newStaffContract").value) || 0;
+            const color = document.getElementById("newStaffColor").value;
+            if (!name) return;
+            state.staff.push({ id: "st_" + Date.now(), name, contract, color });
+            closeModal("staffModal");
+            render();
+        }
+
+        function openShiftModal(id = null) {
+            populateStaffSelect();
+            if (id) {
+                const s = state.shifts.find(x => x.id === id);
+                document.getElementById("modalTitle").innerText = "Redigera Pass";
+                document.getElementById("modalShiftId").value = s.id;
+                document.getElementById("modalStaff").value = s.staffId;
+                document.getElementById("modalWeek").value = s.week || currentWeek;
+                document.getElementById("modalDay").value = s.day;
+                document.getElementById("modalStart").value = s.start;
+                document.getElementById("modalEnd").value = s.end;
+                document.getElementById("modalBreak").value = s.breakMin.toString();
+                isBreakManual = !!s.breakManual;
+                document.getElementById("btnDeleteShift").style.display = "block";
+            } else {
+                document.getElementById("modalTitle").innerText = "Nytt Pass";
+                document.getElementById("modalShiftId").value = "";
+                document.getElementById("modalWeek").value = currentWeek;
+                document.getElementById("modalStart").value = "08:00";
+                document.getElementById("modalEnd").value = "16:30";
+                isBreakManual = false;
+                document.getElementById("btnDeleteShift").style.display = "none";
+                updateBreakAuto();
+            }
+            updateBreakStatusUI();
+            openModal("shiftModal");
+        }
+
+        function onTimeChange() {
+            if (!isBreakManual) updateBreakAuto();
+        }
+
+        function updateBreakAuto() {
+            const s = parseMins(document.getElementById("modalStart").value);
+            let e = parseMins(document.getElementById("modalEnd").value);
+            if (e <= s) e += 24 * 60;
+            const brk = calcHandelsBreak((e - s) / 60);
+            document.getElementById("modalBreak").value = brk.toString();
+        }
+
+        function manualBreakChosen() {
+            isBreakManual = true;
+            updateBreakStatusUI();
+        }
+
+        function resetBreakAuto() {
+            isBreakManual = false;
+            updateBreakAuto();
+            updateBreakStatusUI();
+        }
+
+        function updateBreakStatusUI() {
+            document.getElementById("breakStatus").innerText = isBreakManual ? "Manuell" : "Auto (Handels)";
+            document.getElementById("breakStatus").style.color = isBreakManual ? "#ff9500" : "#888";
+        }
+
+        function saveShift() {
+            const id = document.getElementById("modalShiftId").value;
+            const staffId = document.getElementById("modalStaff").value;
+            const week = document.getElementById("modalWeek").value;
+            const day = parseInt(document.getElementById("modalDay").value);
+            const start = document.getElementById("modalStart").value;
+            const end = document.getElementById("modalEnd").value;
+            const breakMin = parseInt(document.getElementById("modalBreak").value);
+
+            if (id) {
+                const s = state.shifts.find(x => x.id === id);
+                s.staffId = staffId;
+                s.week = week;
+                s.day = day;
+                s.start = start;
+                s.end = end;
+                s.breakMin = breakMin;
+                s.breakManual = isBreakManual;
+            } else {
+                state.shifts.push({
+                    id: "s_" + Date.now(),
+                    staffId,
+                    week,
+                    day,
+                    start,
+                    end,
+                    breakMin,
+                    breakManual: isBreakManual
+                });
+            }
+            closeModal("shiftModal");
+            render();
+        }
+
+        function deleteShift() {
+            const id = document.getElementById("modalShiftId").value;
+            state.shifts = state.shifts.filter(x => x.id !== id);
+            closeModal("shiftModal");
+            render();
+        }
+
+        function removeStaff(id) {
+            if (!confirm("Vill du ta bort personen och alla dess pass?")) return;
+            state.staff = state.staff.filter(x => x.id !== id);
+            state.shifts = state.shifts.filter(x => x.staffId !== id);
+            render();
+        }
+
+        function populateStaffSelect() {
+            const sel = document.getElementById("modalStaff");
+            sel.innerHTML = "";
+            state.staff.forEach(s => {
+                sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add("active"); }
+        function closeModal(id) { document.getElementById(id).classList.remove("active"); }
+
+        function saveLocal() {
+            localStorage.setItem("schema_state_2weeks", JSON.stringify(state));
+        }
+
+        function loadLocal() {
+            const saved = localStorage.getItem("schema_state_2weeks");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.staff && parsed.shifts) {
+                        state = parsed;
+                        state.staff.forEach(s => {
+                            if (s.contract === undefined) s.contract = 38.25;
+                        });
+                        state.shifts.forEach(s => { if (!s.week) s.week = 'even'; });
+                        if (!state.daysEven) state.daysEven = JSON.parse(JSON.stringify(DEFAULT_DAYS));
+                        if (!state.daysOdd) state.daysOdd = JSON.parse(JSON.stringify(DEFAULT_DAYS));
+                    }
+                } catch (e) {}
+            }
+        }
+
+        function exportJSON() {
+            const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+            const a = document.createElement("a");
+            a.href = str;
+            a.download = `schema_2veckor_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        function importJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const r = new FileReader();
+            r.onload = ev => {
+                try {
+                    state = JSON.parse(ev.target.result);
+                    state.staff.forEach(s => {
+                        if (s.contract === undefined) s.contract = 38.25;
+                    });
+                    state.shifts.forEach(s => { if (!s.week) s.week = 'even'; });
+                    if (!state.daysEven) state.daysEven = JSON.parse(JSON.stringify(DEFAULT_DAYS));
+                    if (!state.daysOdd) state.daysOdd = JSON.parse(JSON.stringify(DEFAULT_DAYS));
+                    render();
+                } catch(err) { alert("Felaktig fil!"); }
+            };
+            r.readAsText(file);
+        }
+
+        function printMode(mode) {
+            document.body.className = mode === 'schedule' ? 'print-schedule-mode' : 'print-summary-mode';
+            window.print();
+            document.body.className = '';
+        }
+
+        // Start
+        loadLocal();
+        render();
+    </script>
+</body>
+</html>
